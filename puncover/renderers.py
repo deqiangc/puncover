@@ -43,19 +43,23 @@ def none_sum(a, b):
         return a + b if b is not None else a
     return b
 
+def debug_sum(alist):
+    return sum(list(filter(None, alist)))
+
 def symbol_traverse(s, func):
+
     if isinstance(s, list):
         result = None
         for si in [symbol_traverse(i, func) for i in s]:
             if si is not None:
                 result = none_sum(result, si)
         return result
-
     if collector.TYPE in s:
         if s[collector.TYPE] == collector.TYPE_FILE:
-            return sum([symbol_traverse(s, func) for s in s[collector.SYMBOLS]])
+            return debug_sum([symbol_traverse(s, func) for s in s[collector.SYMBOLS]])
         if s[collector.TYPE] == collector.FOLDER:
-            return sum([symbol_traverse(s, func) for s in itertools.chain(s[collector.SUB_FOLDERS], s[collector.FILES])])
+            #breakpoint()
+            return debug_sum([symbol_traverse(s, func) for s in itertools.chain(s[collector.SUB_FOLDERS], s[collector.FILES])])
 
     return func(s)
 

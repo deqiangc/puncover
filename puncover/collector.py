@@ -96,6 +96,7 @@ class Collector:
         else:
             sym[NAME] = name
         if size:
+            #if size != 0:
             sym[SIZE] = int(size)
         if file:
             sym[PATH] = file
@@ -143,12 +144,14 @@ class Collector:
 
         return True
 
-    # 00000098 <pbl_table_addr>:
-    # 00000098 <pbl_table_addr.constprop.0>:
-    parse_assembly_text_function_start_pattern = re.compile(r"^([\da-f]{8})\s+<(\.?\w+)(\..*)?>:")
+    # pbl_table_addr:
+    parse_assembly_text_function_start_pattern = re.compile(r"^([\._]?\w+):")
 
     # /Users/behrens/Documents/projects/pebble/puncover/pebble/build/../src/puncover.c:8
     parse_assembly_text_c_reference_pattern = re.compile(r"^(/[^:]+)(:(\d+))?")
+
+    # 7a6c:»      10 41 00 f5 f5004110 { »r17:16 = combine(r0,r1) 
+    parse_assembly_address_pattern = re.compile(r"\s+(\w+):")
 
     def parse_assembly_text(self, assembly):
         # print(assembly)
@@ -158,6 +161,7 @@ class Collector:
         symbol_line = None
         assembly_lines = []
         found_symbols = 0
+        is_function_found = False
 
         def flush_current_symbol():
             if name and addr:
@@ -169,8 +173,9 @@ class Collector:
             match = self.parse_assembly_text_function_start_pattern.match(line)
             if match:
                 found_symbols += flush_current_symbol()
-                addr = match.group(1)
-                name = match.group(2)
+                name = match.group(1)
+                addr = None
+                is_function_found = True
                 symbol_file = None
                 symbol_line = None
                 assembly_lines = []
@@ -178,6 +183,12 @@ class Collector:
                 file_match = self.parse_assembly_text_c_reference_pattern.match(line)
                 if not file_match and line.strip() != "":
                     assembly_lines.append(line)
+                    ## The address in image is on the first ASM line after function starts
+                    if is_function_found:
+                        first_assembly_after_function_match = self.parse_assembly_address_pattern.match(line)
+                        if first_assembly_after_function_match:
+                            is_function_found = False
+                            addr = first_assembly_after_function_match.group(1)
                 elif file_match and not symbol_file:
                     symbol_file = file_match.group(1)
                     if file_match.group(3):
@@ -427,6 +438,9 @@ class Collector:
     count_assembly_code_bytes_re = re.compile(r"^\s*[\da-f]+:\s+([\d\sa-f]{9})")
 
     def count_assembly_code_bytes(self, line):
+        # ignore assembly code match. Do not have a good way to RE hexagon syntax. 
+        # Each  package count as 4 byte
+        return 4
         match = self.count_assembly_code_bytes_re.match(line)
         if match:
             return len(match.group(1).replace(" ", "")) // 2
@@ -435,7 +449,9 @@ class Collector:
     def enhance_function_size_from_assembly(self):
         for f in self.all_symbols():
             if ASM in f:
-                f[SIZE] = sum([self.count_assembly_code_bytes(l) for l in f[ASM]])
+                if SIZE not in f or f[SIZE] == 0:
+                    # Only count from ASM if cannot obtain it from other sources.
+                    f[SIZE] = sum([self.count_assembly_code_bytes(l) for l in f[ASM]])
 
     def enhance_sibling_symbols(self):
         for f in self.all_functions():
