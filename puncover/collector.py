@@ -289,11 +289,20 @@ class Collector:
         # warning("Couldn't find symbol for %s:%d:%s" % (base_file_name, line, symbol_name))
         return False
 
+    def enhance_file_by_symbol_match(self, f):
+        # There are symbols that do not file info, guess based on symbol name to
+        # attribute the source
+        if PATH not in f:
+            if f[NAME].lower().find("tflite") >= 0 or f[NAME].lower().find("gemm") >= 0:
+                subfile = "/usr/unknown/unknown.cc"
+                f[PATH] = subfile
+                f[BASE_FILE] = os.path.basename(subfile)
 
     def normalize_files_paths(self, base_dir):
         base_dir = os.path.abspath(base_dir) if base_dir else "/"
 
         for s in self.all_symbols():
+            self.enhance_file_by_symbol_match(s)
             path = s.get(PATH, None)
             if path:
                 if path.startswith(base_dir):
@@ -309,6 +318,7 @@ class Collector:
 
         for s in self.all_symbols():
             s[DISPLAY_NAME] = unmangled_names[s[NAME]]
+
 
     def parse_elf(self, elf_file):
 
