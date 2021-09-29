@@ -90,6 +90,7 @@ class Collector:
     def add_symbol(self, name, address, size=None, file=None, line=None, assembly_lines=None, type=None, stack_size=None):
         int_address = int(address, 16)
         sym = self.symbols.get(int_address, {})
+
         if NAME in sym and sym[NAME] != name:
             # warning("Name for symbol at %s inconsistent (was '%s', now '%s')" % (address, sym[NAME], name))
             pass
@@ -118,7 +119,7 @@ class Collector:
         return sym
 
     # 00000550 00000034 T main	/Users/behrens/Documents/projects/pebble/puncover/puncover/build/../src/puncover.c:25
-    parse_size_line_re = re.compile(r"^([\da-f]{8})\s+([\da-f]{8})\s+(.)\s+(\w+)(\s+([^:]+):(\d+))?")
+    parse_size_line_re = re.compile(r"^([\da-f]{16})\s+([\da-f]{16})\s+(.)\s+(\w+)(\s+([^:]+):(\d+))?")
 
     def parse_size_line(self, line):
         # print(line)
@@ -145,7 +146,7 @@ class Collector:
 
     # 00000098 <pbl_table_addr>:
     # 00000098 <pbl_table_addr.constprop.0>:
-    parse_assembly_text_function_start_pattern = re.compile(r"^([\da-f]{8})\s+<(\.?\w+)(\..*)?>:")
+    parse_assembly_text_function_start_pattern = re.compile(r"^([\da-f]{16})\s+<(\.?\w+)(\..*)?>:")
 
     # /Users/behrens/Documents/projects/pebble/puncover/pebble/build/../src/puncover.c:8
     parse_assembly_text_c_reference_pattern = re.compile(r"^(/[^:]+)(:(\d+))?")
@@ -435,7 +436,8 @@ class Collector:
     def enhance_function_size_from_assembly(self):
         for f in self.all_symbols():
             if ASM in f:
-                f[SIZE] = sum([self.count_assembly_code_bytes(l) for l in f[ASM]])
+                if SIZE not in f or f[SIZE] == 0:
+                    f[SIZE] = sum([self.count_assembly_code_bytes(l) for l in f[ASM]])
 
     def enhance_sibling_symbols(self):
         for f in self.all_functions():
