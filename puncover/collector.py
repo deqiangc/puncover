@@ -435,7 +435,9 @@ class Collector:
     def enhance_function_size_from_assembly(self):
         for f in self.all_symbols():
             if ASM in f:
-                f[SIZE] = sum([self.count_assembly_code_bytes(l) for l in f[ASM]])
+                if SIZE not in f or f[SIZE] == 0:
+                    # Only count from ASM if cannot obtain it from other sources.
+                    f[SIZE] = sum([self.count_assembly_code_bytes(l) for l in f[ASM]])
 
     def enhance_sibling_symbols(self):
         for f in self.all_functions():
